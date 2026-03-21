@@ -1,0 +1,299 @@
+body {
+    position: relative;
+    min-height: 100vh;
+    margin: 0;
+    background-image: url('./backgroundIllustration.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+#toggleButton {
+    position: absolute;
+    top: 540px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#inputTag {
+    position: absolute;
+    top: 30px;
+    right: 10px;
+    font-size: 16px;
+}
+
+#inputArea {
+    width: 200px;
+    height: 300px;
+    position: absolute;
+    top: 60px;
+    right: 10px;
+    font-family: "Meiryo", "ヒラギノ角ゴ ProN", sans-serif;
+    font-size: 16px;
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+#clearInputTag {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+}
+
+/* ====== 全表示・全非表示ボタン ====== */
+#checkButtonsWrap {
+    position: absolute;
+    right: 10px;
+    top: 370px;
+    /* チェックボックスリストの少し上に配置 */
+    display: flex;
+    gap: 10px;
+    /* ボタン同士の隙間 */
+}
+
+.smallButton {
+    padding: 3px 7px;
+    font-size: 12px;
+    border: none;
+    border-radius: 4px;
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    font-family: "Meiryo", "ヒラギノ角ゴ ProN", sans-serif;
+}
+
+.smallButton:hover {
+    opacity: 0.8;
+    /* マウスを乗せると少しフワッと明るくなるの */
+}
+
+.checkAll {
+    background-color: #4CAF50;
+    /* 安心感のある優しい緑 */
+}
+
+.uncheckAll {
+    background-color: #5F9EA0;
+    /* クールで落ち着いた青（カデットブルー） */
+}
+
+#checkBoxList {
+    position: absolute;
+    right: 30px;
+    top: 400px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px 10px;
+    border-radius: 5px;
+}
+
+#sizeSlider {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
+
+#sizeSliderTag {
+    position: absolute;
+    top: 10px;
+    right: 150px;
+}
+
+/* ====== ルーレット設定パネル ====== */
+#rouletteSettings {
+    position: absolute;
+    bottom: 35px;
+    /* 右下のボタンの少し上に配置 */
+    right: 10px;
+    /* 他のUIと右端を揃えるの */
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 5px;
+    border-radius: 5px;
+    font-family: "Meiryo", "ヒラギノ角ゴ ProN", sans-serif;
+    font-size: 12px;
+    line-height: 1;
+}
+
+#pointedText {
+    position: absolute;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    font-weight: bold;
+}
+
+#diskContainer {
+    position: absolute;
+    top: 0px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: -1;
+}
+
+/* ====== ボタンのスタイル ====== */
+.button {
+    padding: 15px 20px;
+    font-size: 20px;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.startButton {
+    background-color: #add8e6;
+    color: #fff;
+    border-radius: 50%;
+    border-color: #187bcd;
+}
+
+.startButton:active {
+    background-color: #187bcd;
+}
+
+.stopButton {
+    background-color: #f08080;
+    color: #fff;
+    border-radius: 0%;
+    border-color: #dc143c;
+}
+
+.stopButton:active {
+    background-color: #dc143c;
+}
+
+.button:disabled {
+    background-color: #ccc;
+    color: #666;
+    cursor: not-allowed;
+    border-color: #aaa;
+}
+
+/* ====== 説明・タイトル ====== */
+#descriptionContainer {
+    position: fixed;
+    width: 500px;
+    left: 20px;
+    top: 20px;
+    background-color: rgba(173, 216, 230, 0.9);
+    padding: 20px;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+}
+
+#descriptionContainer p {
+    margin-bottom: 0px;
+}
+
+#customRouletteTitle {
+    font-family: "BIZ UDMincho", serif;
+    font-weight: 400;
+    font-size: 2em;
+    color: #FF6347;
+    text-align: center;
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #FFFFE0;
+    border-radius: 15px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    position: absolute;
+    left: 20px;
+    width: auto;
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#welcomeMessage {
+    position: fixed;
+    top: 100px;
+    left: 50px;
+    width: 300px;
+    font-size: 13px;
+    word-wrap: break-word;
+}
+
+/* ====== モーダルのスタイル ====== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.modal-content {
+    position: relative;
+    background-color: #fefefe;
+    margin: 10% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 600px;
+}
+
+.modal-image {
+    width: 100%;
+    height: auto;
+}
+
+.modal-text {
+
+    font-family: "BIZ UDMincho", serif;
+    font-weight: 400;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 75px;
+    text-align: center;
+    z-index: 101;
+    white-space: nowrap;
+}
+
+#modalOverlayText {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    color: black;
+    font-size: 50px;
+    line-height: 1.0;
+    z-index: 2;
+    font-family: "BIZ UDMincho", serif;
+    white-space: pre-wrap;
+    text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.8),
+        -2px -2px 2px rgba(255, 255, 255, 0.7);
+}
+
+/* ====== チェックボックスのラベルを指マークに ====== */
+#checkBoxList label,
+#rouletteSettings label {
+    cursor: pointer;
+    /* マウスを乗せた時に指マーク（ポインター）にするの！ */
+    user-select: none;
+    /* カチカチ連打しても文字が青く選択されないようにするプロの技なの！ */
+}
+
+/* ====== 画像保存ボタンのスタイル ====== */
+#saveImageBtn {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    background-color: #ff9800; /* 目立つように元気なオレンジ色にするの！ */
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    font-size: 18px;
+    font-family: "BIZ UDMincho", serif; /* フォントもお揃いにするの！ */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    z-index: 110;
+}
+
+#saveImageBtn:hover {
+    background-color: #e68a00;
+}
