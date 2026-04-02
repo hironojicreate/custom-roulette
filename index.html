@@ -54,11 +54,14 @@
         <button id="randomizeButton">ランダム</button>
         <button id="clearInputButton">項目全削除</button>
     </div>
-    <div id="checkButtonsWrap">
-        <button id="checkAllBtn" class="smallButton checkAll">全表示</button>
-        <button id="uncheckAllBtn" class="smallButton uncheckAll">全非表示</button>
+    <div id="dragContainer">
+        <div id="dragHandle"></div> 
+        <div id="checkButtonsWrap">
+            <button id="checkAllBtn" class="smallButton checkAll">全表示</button>
+            <button id="uncheckAllBtn" class="smallButton uncheckAll">全非表示</button>
+        </div>
+        <div id="checkBoxList"></div>
     </div>
-    <div id="checkBoxList"></div>
     <div id="sizeSliderTag">サイズ</div>
     <input id="sizeSlider" type="range" min="200" max="350" value="250">
     <div id="rouletteSettings">
@@ -93,6 +96,7 @@
         <button id="toggleTextOverlayInputContainerButton">結果表示カード編集</button>
     </div>
 
+    <div id="footerCredit">&copy; 2026 Rela ・ v2.1.2</div>
     <script src="main.js"></script>
 
 </body>

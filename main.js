@@ -281,25 +281,22 @@ document.getElementById('uncheckAllBtn').addEventListener('click', function () {
     recalculateSegmentsAndDraw();
 });
 
+
+// ====== ResizeObserverのブロック ======
+let isListDragged = false; // ドラッグされたかどうかのフラグなの！
+
 // ResizeObserverを使って、テキストエリアの大きさが変わったかを常に監視するの！
 const resizeObserver = new ResizeObserver(entries => {
+    if (isListDragged) return; // 一度でも手で動かしたら、もう自動追従はしないの！
+
     for (let entry of entries) {
-        // テキストエリアの現在の「高さ」と「上からの位置」を取得するの
         const inputHeight = entry.target.offsetHeight;
         const inputTop = entry.target.offsetTop;
+        const dragContainer = document.getElementById('dragContainer'); // 箱ごと動かすの！
 
-        // 動かしたい要素を取得
-        const checkButtonsWrap = document.getElementById('checkButtonsWrap');
-        const checkBoxList = document.getElementById('checkBoxList');
-
-        if (checkButtonsWrap && checkBoxList) {
-            // テキストエリアの下端を計算して、少し(10px)隙間を空けた位置を新しいTopにするの
+        if (dragContainer) {
             const newWrapTop = inputTop + inputHeight + 10;
-            checkButtonsWrap.style.top = `${newWrapTop}px`;
-
-            // チェックボックスリストは、ボタンからさらに40px下に配置するの
-            const newListTop = newWrapTop + 40;
-            checkBoxList.style.top = `${newListTop}px`;
+            dragContainer.style.top = `${newWrapTop}px`;
         }
     }
 });
@@ -310,6 +307,44 @@ if (inputAreaElem) {
     resizeObserver.observe(inputAreaElem);
 }
 
+// ====== ドラッグ＆ドロップ機能ブロック ======
+const dragContainer = document.getElementById('dragContainer');
+const dragHandle = document.getElementById('dragHandle');
+let isDragging = false;
+let offsetX = 0;
+let offsetY = 0;
+
+if (dragHandle && dragContainer) {
+    // ハンドルを掴んだ時
+    dragHandle.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        isListDragged = true; // 追従ストップのフラグを立てるの！
+        
+        // クリックした場所とコンテナの左上のズレを計算しておくの
+        const rect = dragContainer.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+    });
+
+    // マウスを動かしている時
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        
+        // 新しい位置を計算して適用するの
+        let newLeft = e.clientX - offsetX;
+        let newTop = e.clientY - offsetY;
+        
+        // CSSの right 指定を解除して、left と top で動かすようにするの！
+        dragContainer.style.right = 'auto';
+        dragContainer.style.left = `${newLeft}px`;
+        dragContainer.style.top = `${newTop}px`;
+    });
+
+    // マウスを離した時
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+}
 
 // ====== モーダル＆カード編集UIブロック ======
 
