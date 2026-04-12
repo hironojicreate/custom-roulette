@@ -51,6 +51,7 @@
     <textarea id="inputArea"
         placeholder="項目入力欄。入力方法は［入力例］ボタンを押してください。また、CSVファイルをここにドラッグアンドドロップして項目を読み込むことも可能です。"></textarea>
     <div id="clearInputTag">
+        <button id="historyButton">履歴表示</button>
         <button id="randomizeButton">ランダム</button>
         <button id="clearInputButton">項目全削除</button>
     </div>
@@ -66,7 +67,7 @@
     <input id="sizeSlider" type="range" min="200" max="350" value="250">
     <div id="rouletteSettings">
         <label><input type="checkbox" id="soundToggle"> サウンドON</label><br>
-        <label><input type="checkbox" id="autoDisableToggle"> 当選項目を自動OFF</label>
+        <label><input type="checkbox" id="autoDisableToggle" checked> 当選項目を自動OFF</label>
     </div>
 
     <div id="diskContainer" style="text-align: center;">
@@ -96,7 +97,12 @@
         <button id="toggleTextOverlayInputContainerButton">結果表示カード編集</button>
     </div>
 
-    <div id="footerCredit">&copy; 2026 Rela ・ v2.1.2</div>
+    <div id="historyContainer">
+        <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px;">当選履歴</div>
+        <div id="historyList"></div>
+    </div>
+
+    <div id="footerCredit">&copy; 2026 Rela ・ v2.2.1</div>
     <script src="main.js"></script>
 
 </body>

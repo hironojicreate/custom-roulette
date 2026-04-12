@@ -35,10 +35,12 @@ body {
 }
 
 #clearInputTag {
-    position: fixed; /* absolute から fixed に書き換えなの！ */
+    position: fixed;
+    /* absolute から fixed に書き換えなの！ */
     bottom: 10px;
     right: 10px;
-    z-index: 10; /* 手前に表示するために追加なの！ */
+    z-index: 10;
+    /* 手前に表示するために追加なの！ */
 }
 
 .smallButton {
@@ -81,8 +83,10 @@ body {
 
 /* ====== ルーレット設定パネル ====== */
 #rouletteSettings {
-    position: fixed; /* absolute から fixed に書き換えなの！ */
-    bottom: 50px; /* 35px から 50px に書き換えてボタンとの被りを少し防ぐの！ */
+    position: fixed;
+    /* absolute から fixed に書き換えなの！ */
+    bottom: 50px;
+    /* 35px から 50px に書き換えてボタンとの被りを少し防ぐの！ */
     right: 10px;
     background-color: rgba(255, 255, 255, 0.8);
     padding: 5px;
@@ -90,7 +94,8 @@ body {
     font-family: "Meiryo", "ヒラギノ角ゴ ProN", sans-serif;
     font-size: 12px;
     line-height: 1;
-    z-index: 1; /* 背後に表示するために追加なの！ */
+    z-index: 1;
+    /* 背後に表示するために追加なの！ */
 }
 
 #pointedText {
@@ -264,12 +269,14 @@ body {
     position: absolute;
     bottom: 30px;
     right: 30px;
-    background-color: #ff9800; /* 目立つように元気なオレンジ色にするの！ */
+    background-color: #ff9800;
+    /* 目立つように元気なオレンジ色にするの！ */
     color: #fff;
     border: none;
     border-radius: 5px;
     font-size: 18px;
-    font-family: "BIZ UDMincho", serif; /* フォントもお揃いにするの！ */
+    font-family: "BIZ UDMincho", serif;
+    /* フォントもお揃いにするの！ */
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
     z-index: 110;
 }
@@ -281,41 +288,56 @@ body {
 /* ====== ドラッグ用コンテナ（超モダン版なの！） ====== */
 #dragContainer {
     position: absolute;
-    right: 30px; 
+    right: 30px;
     top: 400px;
     z-index: 10;
-    background-color: rgba(255, 255, 255, 0.85); /* 少しだけ透明度を下げて上品に */
-    padding: 10px 15px 15px; /* 上はハンドルのために少し狭く、横と下はゆったり */
-    border-radius: 12px; /* 丸みを強めにしてイマドキなカード風に！ */
+    background-color: rgba(255, 255, 255, 0.85);
+    /* 少しだけ透明度を下げて上品に */
+    padding: 10px 15px 15px;
+    /* 上はハンドルのために少し狭く、横と下はゆったり */
+    border-radius: 12px;
+    /* 丸みを強めにしてイマドキなカード風に！ */
     display: flex;
     flex-direction: column;
     align-items: center;
     /* フワッと浮いているような、深くて柔らかい二重の影をつけるの！ */
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08); 
-    border: 1px solid rgba(255, 255, 255, 0.5); /* 縁を少し光らせてガラス感を出すの */
-    backdrop-filter: blur(8px); /* すりガラス効果で背景をぼかすの！（モダンさの極み！） */
-    -webkit-backdrop-filter: blur(8px); /* Safari対応なの */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    /* 縁を少し光らせてガラス感を出すの */
+    backdrop-filter: blur(8px);
+    /* すりガラス効果で背景をぼかすの！（モダンさの極み！） */
+    -webkit-backdrop-filter: blur(8px);
+    /* Safari対応なの */
 }
 
 #dragHandle {
-    width: 50px; /* 短くシュッとした長さに */
-    height: 8px; /* 薄くするの */
+    width: 50px;
+    /* 短くシュッとした長さに */
+    height: 8px;
+    /* 薄くするの */
     background-color: #d0d0d0;
-    border-radius: 4px; /* カプセルみたいな丸み */
+    border-radius: 4px;
+    /* カプセルみたいな丸み */
     cursor: grab;
-    margin-bottom: 12px; /* 下のボタンとの間にゆとりを */
-    transition: background-color 0.2s, width 0.2s; /* ふわっと変化するアニメーション */
+    margin-bottom: 12px;
+    /* 下のボタンとの間にゆとりを */
+    transition: background-color 0.2s, width 0.2s;
+    /* ふわっと変化するアニメーション */
 }
 
 #dragHandle:hover {
-    background-color: #a0a0a0; /* マウスを乗せると少し濃くなって反応するの */
-    width: 60px; /* 乗せた時に少しだけ横に伸びる遊び心なの！ */
+    background-color: #a0a0a0;
+    /* マウスを乗せると少し濃くなって反応するの */
+    width: 60px;
+    /* 乗せた時に少しだけ横に伸びる遊び心なの！ */
 }
 
 #dragHandle:active {
     cursor: grabbing;
-    background-color: #888; /* 掴むとさらに濃くなるの */
-    width: 50px; /* 掴むとキュッと元の長さに戻るの */
+    background-color: #888;
+    /* 掴むとさらに濃くなるの */
+    width: 50px;
+    /* 掴むとキュッと元の長さに戻るの */
 }
 
 #checkButtonsWrap {
@@ -326,24 +348,70 @@ body {
 
 #checkBoxList {
     width: 100%;
+    max-height: 350px; /* リストの最大長さを決めて、下に突き抜けるのを防ぐの！ */
+    overflow-y: auto;  /* はみ出た分は、箱の中でスクロールできるようにするの！ */
 }
 
 /* ====== コピーライト表示 ====== */
 #footerCredit {
     position: fixed;
-    bottom: 15px; /* 一番下から少しだけ浮かせるの */
-    left: 50%; /* 左から50%の位置に持ってきて… */
-    transform: translateX(-50%); /* さらに自分自身の幅の半分だけ左に戻すことで、完璧な「ど真ん中」にするの！ */
-    z-index: 50; /* 背景や他の要素に埋もれないように手前にするの */
-    
-    font-family: monospace, "Meiryo", sans-serif; /* 少しシステムチックでプロっぽいフォントにするの */
+    bottom: 15px;
+    /* 一番下から少しだけ浮かせるの */
+    left: 50%;
+    /* 左から50%の位置に持ってきて… */
+    transform: translateX(-50%);
+    /* さらに自分自身の幅の半分だけ左に戻すことで、完璧な「ど真ん中」にするの！ */
+    z-index: 50;
+    /* 背景や他の要素に埋もれないように手前にするの */
+
+    font-family: monospace, "Meiryo", sans-serif;
+    /* 少しシステムチックでプロっぽいフォントにするの */
     font-size: 13px;
-    color: #444; /* 真っ黒じゃなくて、少し落ち着いたダークグレーなの */
-    
+    color: #444;
+    /* 真っ黒じゃなくて、少し落ち着いたダークグレーなの */
+
     /* 背景のイラストがどんな色でも読めるように、文字の周りを白くぼんやり光らせるプロの技なの！ */
-    text-shadow: 0px 0px 4px rgba(255, 255, 255, 0.9), 0px 0px 8px rgba(255, 255, 255, 1); 
-    
-    user-select: none; /* アプリっぽく、文字をドラッグ選択できないようにするの */
-    pointer-events: none; /* もし他のボタンに被っても、クリックの邪魔にならないようにする魔法なの！ */
-    letter-spacing: 1px; /* 文字の間隔を少し開けて、シックに魅せるの */
+    text-shadow: 0px 0px 4px rgba(255, 255, 255, 0.9), 0px 0px 8px rgba(255, 255, 255, 1);
+
+    user-select: none;
+    /* アプリっぽく、文字をドラッグ選択できないようにするの */
+    pointer-events: none;
+    /* もし他のボタンに被っても、クリックの邪魔にならないようにする魔法なの！ */
+    letter-spacing: 1px;
+    /* 文字の間隔を少し開けて、シックに魅せるの */
+}
+
+/* ====== 履歴表示エリアのスタイル（追加） ====== */
+#historyContainer {
+    display: none;
+    /* 最初は隠しておくの！ */
+    position: fixed;
+    left: 20px;
+    top: 110px;
+    /* 左側のいい感じの高さに配置するの */
+    width: 200px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    z-index: 10;
+
+    /* 右のコンテナとお揃いのすりガラス風なの！ */
+    background-color: rgba(255, 255, 255, 0.85);
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-family: "Meiryo", "ヒラギノ角ゴ ProN", sans-serif;
+}
+
+#historyList {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.history-item {
+    padding: 5px 0;
+    border-bottom: 1px dashed #ccc;
+    color: #333;
 }

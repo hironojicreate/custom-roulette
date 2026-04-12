@@ -27,8 +27,12 @@ let rPressed = false;
 let audioCtx;
 let lastPointedText = "";
 let isSoundEnabled = false;
-let isAutoDisableEnabled = false;
+let isAutoDisableEnabled = true;
 let lastTick = -1;
+
+// 履歴機能用の変数
+let winningHistory = [];
+let isHistoryVisible = false;
 
 // ====== 初期化（ページ読み込み時）ブロック ======
 document.addEventListener('DOMContentLoaded', function () {
@@ -69,9 +73,28 @@ document.addEventListener('DOMContentLoaded', function () {
     if (savedAutoDisable !== null) isAutoDisableEnabled = JSON.parse(savedAutoDisable);
     document.getElementById('autoDisableToggle').checked = isAutoDisableEnabled;
 
+    const savedHistory = localStorage.getItem('winningHistory');
+    if (savedHistory) {
+        winningHistory = JSON.parse(savedHistory);
+    }
+
     // 6. 初期描画
     updateCheckBoxList();
     recalculateSegmentsAndDraw();
+
+    // 履歴エリアの開閉状態の記憶を呼び起こすの！
+    const savedHistoryVisible = localStorage.getItem('isHistoryVisible');
+    if (savedHistoryVisible !== null) {
+        isHistoryVisible = JSON.parse(savedHistoryVisible);
+        if (isHistoryVisible) {
+            // 開いていた記憶があれば、エリアを表示してボタン名も変えるの！
+            document.getElementById('historyContainer').style.display = 'block';
+            document.getElementById('historyButton').textContent = '履歴非表示';
+        }
+    }
+    
+    // ページ読み込み時に、裏側で履歴の中身も最新にしておくの！
+    updateHistoryDisplay();
 });
 
 
@@ -113,10 +136,50 @@ inputArea.addEventListener('drop', (event) => {
 document.getElementById('inputArea').addEventListener('input', function () {
     const inputValue = this.value.trim();
     localStorage.setItem('textareaContent', inputValue);
-    texts = inputValue.split('\n').filter(line => line.trim() !== "");
+    const newTexts = inputValue.split('\n').filter(line => line.trim() !== "");
 
-    if (texts.length === 0) segmentVisibility = {};
+    if (newTexts.length === 0) {
+        segmentVisibility = {};
+        winningHistory = [];
+    } else {
+        const newSegmentVisibility = {};
+        const newHistory = [];
 
+        // 1. チェックボックスのON/OFF状態を引き継ぐの！
+        newTexts.forEach(newText => {
+            const newName = newText.split('*')[0].trim(); // 名前だけを抽出
+            
+            // 変更前のテキストリストから、同じ名前のものを探すの！
+            const oldText = texts.find(t => t.split('*')[0].trim() === newName);
+            
+            if (oldText && segmentVisibility[oldText] !== undefined) {
+                // 同じ名前があったら、昔のON/OFF状態を新しいテキストに引き継ぐの！
+                newSegmentVisibility[newText] = segmentVisibility[oldText];
+            } else {
+                newSegmentVisibility[newText] = true; // 新しく追加された項目はONにするの
+            }
+        });
+
+        // 2. 履歴リストの中身も新しい文字列（倍率変更後）にアップデートするの！
+        winningHistory.forEach(oldHistoryText => {
+            const oldName = oldHistoryText.split('*')[0].trim();
+            const newTextMatch = newTexts.find(t => t.split('*')[0].trim() === oldName);
+            
+            if (newTextMatch) {
+                // 名前が一致する最新のテキストがあれば、それを新しい履歴として残すの！
+                newHistory.push(newTextMatch);
+            }
+        });
+
+        segmentVisibility = newSegmentVisibility;
+        winningHistory = newHistory;
+    }
+
+    texts = newTexts; // 新しいテキストリストを正式に反映するの！
+    localStorage.setItem('winningHistory', JSON.stringify(winningHistory));
+
+    // 画面の表示も全部アップデートするの！
+    updateHistoryDisplay();
     updateCheckBoxList();
     saveCheckBoxState();
     recalculateSegmentsAndDraw();
@@ -145,8 +208,19 @@ document.getElementById('autoDisableToggle').addEventListener('change', function
 
 // 入力例ボタン（書き換え: / を * に変更）
 document.getElementById('exampleInputButton').addEventListener('click', function () {
-    document.getElementById('inputArea').value = 'りんご\nみかん*0.5\nいちご\nバナナ*2';
-    texts = document.getElementById('inputArea').value.trim().split('\n');
+    const exampleText = 'りんご\nみかん*0.5\nいちご\nバナナ*2';
+    document.getElementById('inputArea').value = exampleText;
+    texts = exampleText.split('\n');
+    
+    // ↓ここから追加なの！入力内容を保存するの！
+    localStorage.setItem('textareaContent', exampleText);
+    
+    // ↓ここから追加なの！今までの履歴を綺麗にクリアするの！
+    winningHistory = [];
+    localStorage.removeItem('winningHistory');
+    updateHistoryDisplay(); // 画面の履歴エリアも空っぽに更新するの！
+    // ↑ここまで追加なの！
+
     updateCheckBoxList();
     recalculateSegmentsAndDraw();
 });
@@ -156,8 +230,28 @@ document.getElementById('clearInputButton').addEventListener('click', function (
     document.getElementById('inputArea').value = '';
     texts = [];
     segmentVisibility = {};
+    winningHistory = [];
+    localStorage.removeItem('winningHistory');
     updateCheckBoxList();
     recalculateSegmentsAndDraw();
+    updateHistoryDisplay();
+});
+
+// 履歴表示ボタンの処理
+document.getElementById('historyButton').addEventListener('click', function () {
+    const historyContainer = document.getElementById('historyContainer');
+    if (historyContainer.style.display === 'none' || historyContainer.style.display === '') {
+        historyContainer.style.display = 'block';
+        this.textContent = '履歴非表示';
+        isHistoryVisible = true;
+        localStorage.setItem('isHistoryVisible', true);
+        updateHistoryDisplay(); // 表示する時に最新の状態にするの！
+    } else {
+        historyContainer.style.display = 'none';
+        this.textContent = '履歴表示';
+        isHistoryVisible = false;
+        localStorage.setItem('isHistoryVisible', false);
+    }
 });
 
 // ランダムボタン（書き換え: / を * に変更して分割・結合）
@@ -223,7 +317,7 @@ toggleButton.addEventListener('click', function () {
     randomizeButton.disabled = true;
     clearInputButton.disabled = true;
 
-    // 追加: ブラウザの音声再生制限を解除するために、初回クリック時にAudioContextを準備するの！
+    // ブラウザの音声再生制限を解除するために、初回クリック時にAudioContextを準備するの！
     if (isSoundEnabled && !audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
@@ -266,6 +360,13 @@ document.getElementById('checkAllBtn').addEventListener('click', function () {
     texts.forEach(text => {
         segmentVisibility[text] = true;
     });
+    
+    // ↓追加：ボタンを押したら履歴もクリアするの！
+    winningHistory = [];
+    localStorage.removeItem('winningHistory');
+    updateHistoryDisplay();
+    // ↑ここまで追加なの！
+    
     saveCheckBoxState();
     updateCheckBoxList();
     recalculateSegmentsAndDraw();
@@ -276,6 +377,13 @@ document.getElementById('uncheckAllBtn').addEventListener('click', function () {
     texts.forEach(text => {
         segmentVisibility[text] = false;
     });
+    
+    // ↓追加：ボタンを押したら履歴もクリアするの！
+    winningHistory = [];
+    localStorage.removeItem('winningHistory');
+    updateHistoryDisplay();
+    // ↑ここまで追加なの！
+    
     saveCheckBoxState();
     updateCheckBoxList();
     recalculateSegmentsAndDraw();
@@ -342,6 +450,37 @@ if (dragHandle && dragContainer) {
 
     // マウスを離した時
     document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    // 指でハンドルに触れた時
+    dragHandle.addEventListener('touchstart', (e) => {
+        isDragging = true;
+        isListDragged = true; 
+        
+        const rect = dragContainer.getBoundingClientRect();
+        // スマホの場合は指が複数あるかもしれないから、「1本目の指（touches[0]）」の場所を使うの！
+        offsetX = e.touches[0].clientX - rect.left;
+        offsetY = e.touches[0].clientY - rect.top;
+    }, { passive: false }); // スマホ特有の警告を消すおまじないなの！
+
+    // 指を画面上で滑らせている時
+    document.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        
+        // 🚨ここがプロの技！：箱を動かしている時に、画面全体が一緒にスクロールしちゃうのを防ぐの！
+        e.preventDefault(); 
+        
+        let newLeft = e.touches[0].clientX - offsetX;
+        let newTop = e.touches[0].clientY - offsetY;
+        
+        dragContainer.style.right = 'auto';
+        dragContainer.style.left = `${newLeft}px`;
+        dragContainer.style.top = `${newTop}px`;
+    }, { passive: false }); // preventDefault() を使うために必要な設定なの！
+
+    // 指を画面から離した時
+    document.addEventListener('touchend', () => {
         isDragging = false;
     });
 }
@@ -452,6 +591,7 @@ function updateCheckBoxList() {
             segmentVisibility[text] = checkbox.checked;
             saveCheckBoxState();
             recalculateSegmentsAndDraw();
+            updateHistoryDisplay();
         };
 
         const label = document.createElement('label');
@@ -483,6 +623,17 @@ function spinDisk() {
 
             const winningText = document.getElementById('pointedText').textContent;
 
+            // 当選履歴に記録する処理なの！
+            const originalText = texts.find(t => t.split('*')[0] === winningText);
+            if (originalText) {
+                // すでに履歴に存在していたら、一旦古いものを除外（削除）するの！
+                winningHistory = winningHistory.filter(item => item !== originalText);
+                
+                // そして、改めて一番最後（一番下）に追加し直すの！
+                winningHistory.push(originalText);
+                localStorage.setItem('winningHistory', JSON.stringify(winningHistory)); // 保存もしておくの！
+            }
+
             playResultSound();
 
             if (isAutoDisableEnabled && visibleTexts.length > 0) {
@@ -493,6 +644,7 @@ function spinDisk() {
                     saveCheckBoxState();
                     updateCheckBoxList();
                     recalculateSegmentsAndDraw();
+                    updateHistoryDisplay();
                 }
             }
 
@@ -802,3 +954,28 @@ function displayTextOnModal(text) {
     overlayText.innerHTML = text;
 }
 
+// ====== 履歴表示を更新する関数ブロック ======
+// 関数の主要な機能コメント：当選した順番を記憶したリストから、現在OFFになっている項目だけを抽出して履歴エリアに表示する関数なの！
+function updateHistoryDisplay() {
+    const historyContainer = document.getElementById('historyContainer');
+    const historyList = document.getElementById('historyList');
+    
+    if (!historyList || !historyContainer) return; 
+    
+    historyList.innerHTML = '';
+
+    // 履歴リストの中から、「現在OFFになっている」ものだけを抽出して表示するの！
+    winningHistory.forEach(text => {
+        if (segmentVisibility[text] === false) {
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'history-item';
+            // *以降の倍率表示を消して、名前だけにするの
+            itemDiv.textContent = '👑 ' + text.split('*')[0]; 
+            historyList.appendChild(itemDiv);
+        }
+    });
+
+    // 要素の追加（描画）が終わった直後に、コンテナのスクロール位置を一番下（scrollHeight）に合わせるの！
+    historyContainer.scrollTop = historyContainer.scrollHeight;
+
+}
