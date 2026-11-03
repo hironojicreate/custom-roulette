@@ -366,6 +366,17 @@ body {
     text-overflow: ellipsis;
 }
 
+/* 回転中はチェック一覧を操作できないことが分かるよう、少し薄くするの */
+#dragContainer.spinLocked #checkBoxList label {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.smallButton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 /* ====== コピーライト表示 ====== */
 #footerCredit {
     position: fixed;
