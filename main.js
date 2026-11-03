@@ -5,6 +5,9 @@ const ctx = canvas.getContext('2d');
 let radius = parseInt(document.getElementById('sizeSlider').value, 10);
 // ポインターがはみ出す分を含めた、円盤まわりの余白
 const POINTER_EXTENT = 85;
+// 高解像度画面用の描画倍率（resizeCanvas で設定）
+const MAX_PIXEL_RATIO = 2; // 3倍で描いても見た目はほぼ変わらず重くなるだけなので、2倍までにする
+let canvasPixelRatio = 1;
 let centerX = 0;
 let centerY = 0;
 resizeCanvas();
@@ -35,7 +38,8 @@ let audioCtx;
 let lastPointedText = "";
 let isSoundEnabled = false;
 let isAutoDisableEnabled = true;
-let lastTick = -1;
+let lastTick = -1;        // 前のフレームでポインターが指していた項目の番号（カチッ音用）
+let pointedIndex = -1;    // 今ポインターが指している項目の番号（visibleTexts の何番目か）
 
 // 履歴機能用の変数
 let winningHistory = [];
@@ -123,8 +127,7 @@ inputArea.addEventListener('drop', (event) => {
     reader.onload = (event) => {
         try {
             const arrayBuffer = event.target.result;
-            const decoder = new TextDecoder('shift-jis');
-            const text = decoder.decode(new Uint8Array(arrayBuffer));
+            const text = decodeCsvText(new Uint8Array(arrayBuffer));
             // カンマ・改行（Windowsの\r\nを含む）で区切って、1行1項目にする
             const formattedText = text.split(/\r\n|\r|\n|,/)
                 .map(item => item.trim())
@@ -138,6 +141,18 @@ inputArea.addEventListener('drop', (event) => {
     };
     reader.readAsArrayBuffer(file);
 });
+
+// CSVの文字コードを自動判定して読む関数。
+// GoogleスプレッドシートやMacで作ったCSVは UTF-8、日本語WindowsのExcelで作ったCSVは Shift-JIS が多いの。
+// まず UTF-8 として厳密に読んでみて（fatal: true で、UTF-8として正しくなければエラーになる）、
+// ダメだったら Shift-JIS で読み直すの！（先頭のBOMは UTF-8 の読み込みで自動的に取り除かれるの）
+function decodeCsvText(bytes) {
+    try {
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch (e) {
+        return new TextDecoder('shift-jis').decode(bytes);
+    }
+}
 
 // テキストエリア入力時の保存と再描画
 document.getElementById('inputArea').addEventListener('input', function () {
@@ -210,14 +225,38 @@ function setInputText(value) {
 
 // 円盤の大きさに合わせてキャンバスのサイズを決める関数。
 // 円盤＋ポインターがぴったり収まる大きさにすることで、スマホで縮小表示しても円盤が大きく見えるの！
+//
+// 高解像度の画面（Retinaなど）では、1px の中に実際のドットが2〜3個あるの。
+// キャンバスの中身をその分だけ細かく描いて、表示サイズは元のままにすることで、
+// 円盤や文字がぼやけずにくっきり見えるの！
+// （描画の座標は今まで通りの「見た目のpx」で書けるように、setTransform で拡大しておく）
+function getPixelRatio() {
+    return Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
+}
+
 function resizeCanvas() {
-    canvas.width = 2 * (radius + POINTER_EXTENT);
-    canvas.height = 2 * radius + 40;
-    centerX = canvas.width / 2;
+    const width = 2 * (radius + POINTER_EXTENT);
+    const height = 2 * radius + 40;
+    canvasPixelRatio = getPixelRatio();
+
+    canvas.width = Math.round(width * canvasPixelRatio);
+    canvas.height = Math.round(height * canvasPixelRatio);
+    canvas.style.width = `${width}px`; // 高さは縦横比から自動で決まるの
+    ctx.setTransform(canvasPixelRatio, 0, 0, canvasPixelRatio, 0, 0);
+
+    centerX = width / 2;
     centerY = radius + 20;
     // PCレイアウトでは、スタートボタンを円盤のすぐ下に置くの
-    document.getElementById('toggleButton').style.top = `${canvas.height}px`;
+    document.getElementById('toggleButton').style.top = `${height}px`;
 }
+
+// ブラウザの拡大縮小や、解像度の違うモニターへの移動で倍率が変わったら描き直すの
+window.addEventListener('resize', () => {
+    if (getPixelRatio() !== canvasPixelRatio) {
+        resizeCanvas();
+        recalculateSegmentsAndDraw();
+    }
+});
 
 // サウンドON/OFF切り替え
 document.getElementById('soundToggle').addEventListener('change', function () {
@@ -355,6 +394,7 @@ toggleButton.addEventListener('click', function () {
         toggleButton.className = 'button stopButton';
         spinSpeed = 0.01;
         lastUpdateTime = Date.now();
+        lastTick = pointedIndex; // 回し始めた瞬間に音が鳴らないよう、今の位置を覚えておくの
         requestAnimationFrame(spinDisk);
     } else {
         spinning = false;
@@ -701,17 +741,13 @@ function spinDisk() {
 
     angleOffset += (spinSpeed * deltaTime) % (2 * Math.PI);
 
-    // ルーレット全体(2π)を等分した角度を計算
-    const tickAngle = (2 * Math.PI) / 3;
-    // 現在の総回転角度が、等分のうちの何番目のブロックにいるか計算
-    const currentTick = Math.floor(angleOffset / tickAngle);
-
-    // 前のブロックから新しいブロックに移動した瞬間（境界線を越えた時）に音を鳴らす！
-    if (currentTick !== lastTick) {
-        playSound();
-        lastTick = currentTick; // 鳴らした場所を更新
-    }
     recalculateSegmentsAndDraw();
+
+    // ポインターが次の項目に移った瞬間（区切り線を越えた時）に「カチッ」と鳴らすの！
+    if (pointedIndex !== lastTick) {
+        if (lastTick !== -1) playSound();
+        lastTick = pointedIndex; // 鳴らした場所を更新
+    }
     lastUpdateTime = now;
     if (spinSpeed > 0) requestAnimationFrame(spinDisk);
 }
@@ -722,7 +758,8 @@ function recalculateSegmentsAndDraw() {
     const totalMultiplier = visibleTexts.reduce((total, text) => total + parseMultiplier(text), 0);
     const baseAngle = (2 * Math.PI) / totalMultiplier;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // setTransform で拡大しているので、見た目のpxで全体を消す
+    ctx.clearRect(0, 0, canvas.width / canvasPixelRatio, canvas.height / canvasPixelRatio);
 
     // 白い縁（ふんわりした影をつけて、円盤を背景から浮かせるの）
     ctx.save();
@@ -808,8 +845,9 @@ function drawSegmentSeparator(angle) {
 }
 
 // ====== 項目名の文字サイズ自動調整ブロック ======
-const LABEL_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", "Noto Sans JP", sans-serif';
-const LABEL_FONT_WEIGHT = 'bold';
+// 元々の円盤の文字と同じ Arial（日本語はOS標準のゴシック体で表示される）・標準の太さにするの
+const LABEL_FONT_FAMILY = 'Arial, sans-serif';
+const LABEL_FONT_WEIGHT = 'normal';
 const LABEL_COLOR = '#222';
 const LABEL_MIN_FONT = 10;           // これより小さくはしない（入り切らない分は「…」で省略）
 const LABEL_MAX_FONT_RATIO = 0.24;   // 文字サイズの上限（半径に対する割合）
@@ -1066,16 +1104,20 @@ function updatePointedText() {
     let currentAngle = 0;
     let foundText = "テキストエリアに、項目と倍率を書いて下さい。";
 
-    visibleTexts.forEach(text => {
+    let foundIndex = -1;
+    const totalMultiplier = visibleTexts.reduce((acc, val) => acc + parseMultiplier(val), 0);
+
+    visibleTexts.forEach((text, index) => {
         const multiplier = parseMultiplier(text);
-        const totalMultiplier = visibleTexts.reduce((acc, val) => acc + parseMultiplier(val), 0);
         const segmentAngle = (2 * Math.PI) * multiplier / totalMultiplier;
 
         if (adjustedAngle >= currentAngle && adjustedAngle < currentAngle + segmentAngle) {
             foundText = text.split('*')[0];
+            foundIndex = index;
         }
         currentAngle += segmentAngle;
     });
+    pointedIndex = foundIndex;
 
     document.getElementById('pointedText').textContent = foundText;
 }
