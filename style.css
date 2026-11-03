@@ -537,7 +537,8 @@ body {
 
     #diskCanvas {
         display: block;
-        width: 100%;
+        /* JSで設定されるPC用の表示幅を無効にして、画面幅に合わせる */
+        width: 100% !important;
         max-width: 560px;
         height: auto;
         margin: 0 auto;
