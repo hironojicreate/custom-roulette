@@ -214,6 +214,8 @@ body {
 
 .modal-content {
     position: relative;
+    /* カードの幅を基準に文字サイズを決める（cqw）ため、コンテナとして扱う */
+    container-type: inline-size;
     background-color: #fefefe;
     margin: 10% auto;
     padding: 20px;
@@ -245,8 +247,12 @@ body {
     position: absolute;
     top: 30px;
     left: 30px;
+    /* カード幅600pxのときに30px・50pxになる比率で、スマホでもカードと一緒に縮むようにする */
+    top: 5cqw;
+    left: 5cqw;
     color: black;
     font-size: 50px;
+    font-size: 8.333cqw;
     line-height: 1.0;
     z-index: 2;
     font-family: "BIZ UDMincho", serif;
@@ -348,8 +354,16 @@ body {
 
 #checkBoxList {
     width: 100%;
+    max-width: 200px; /* 長い名前があっても横に広がりすぎないようにするの */
     max-height: 350px; /* リストの最大長さを決めて、下に突き抜けるのを防ぐの！ */
     overflow-y: auto;  /* はみ出た分は、箱の中でスクロールできるようにするの！ */
+}
+
+/* 長い名前は1行に収めて、はみ出した分を「…」で省略するの */
+#checkBoxList .checkItem {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ====== コピーライト表示 ====== */
@@ -414,4 +428,225 @@ body {
     padding: 5px 0;
     border-bottom: 1px dashed #ccc;
     color: #333;
+}
+/* ====== 結果表示カード編集エリア ====== */
+#textOverlayInputContainer {
+    position: fixed;
+    left: 20px;
+    bottom: 60px;
+}
+
+#textOverlayInput {
+    width: 170px;
+    height: 120px;
+}
+
+#insertSampleTextWrap {
+    position: fixed;
+    left: 20px;
+    bottom: 40px;
+}
+
+#cardEditToggleWrap {
+    position: fixed;
+    left: 20px;
+    bottom: 10px;
+}
+
+/* =====================================================
+   スマホ・タブレット（幅が狭い画面）用のレイアウト
+   PC用の「画面の四隅に固定配置」をやめて、上から順に縦に並べる
+   ===================================================== */
+@media (max-width: 1100px) {
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px 24px;
+        box-sizing: border-box;
+        /* iPhoneでは background-attachment: fixed が効かず画像が巨大化するため、
+           背景は下の ::before で画面に固定して表示する */
+        background-image: none;
+    }
+
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background-image: url('./backgroundIllustration.jpg');
+        background-size: cover;
+        background-position: center;
+    }
+
+    /* 固定配置・絶対配置を解除して、縦に並べる */
+    #customRouletteTitle,
+    #welcomeMessage,
+    #inputTag,
+    #inputArea,
+    #clearInputTag,
+    #dragContainer,
+    #rouletteSettings,
+    #diskContainer,
+    #toggleButton,
+    #textOverlayInputContainer,
+    #insertSampleTextWrap,
+    #cardEditToggleWrap,
+    #historyContainer,
+    #footerCredit {
+        position: static;
+        transform: none;
+        margin: 0;
+    }
+
+    /* 並び順：タイトル → 円盤 → スタート → 項目入力 → 操作ボタン → 表示切替 → 設定 → 履歴 → カード編集 → 説明 → コピーライト */
+    #customRouletteTitle { order: 1; }
+    #diskContainer { order: 2; }
+    #toggleButton { order: 3; }
+    #inputTag { order: 4; }
+    #inputArea { order: 5; }
+    #clearInputTag { order: 6; }
+    #dragContainer { order: 7; }
+    #rouletteSettings { order: 8; }
+    #historyContainer { order: 9; }
+    #cardEditToggleWrap { order: 10; }
+    #textOverlayInputContainer { order: 11; }
+    #welcomeMessage { order: 12; }
+    #footerCredit { order: 13; }
+
+    /* ルーレットのポインター位置を示す非表示テキストと、サイズ調整（画面幅に合わせて自動で縮むので不要）は隠す */
+    #pointedText,
+    #sizeSlider,
+    #sizeSliderTag {
+        display: none;
+    }
+
+    #customRouletteTitle {
+        font-size: 1.5em;
+        padding: 10px 20px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 円盤は画面幅に合わせて縮小表示する */
+    #diskContainer {
+        width: 100%;
+        z-index: auto;
+    }
+
+    #diskCanvas {
+        display: block;
+        width: 100%;
+        max-width: 560px;
+        height: auto;
+        margin: 0 auto;
+    }
+
+    #toggleButton {
+        /* JSで設定されるPC用の位置指定を無効にする */
+        top: auto !important;
+        padding: 15px 40px;
+    }
+
+    #inputTag,
+    #inputArea,
+    #dragContainer,
+    #rouletteSettings,
+    #historyContainer,
+    #welcomeMessage {
+        width: 100%;
+        max-width: 560px;
+        box-sizing: border-box;
+    }
+
+    #inputTag {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    #inputArea {
+        height: 160px;
+        /* iPhoneで入力時に画面が勝手に拡大されないよう16px以上にする */
+        font-size: 16px;
+    }
+
+    #clearInputTag {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    /* 縦並びのレイアウトではドラッグ移動は不要 */
+    #dragContainer {
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+    }
+
+    #dragHandle {
+        display: none;
+    }
+
+    #checkBoxList {
+        max-height: 240px;
+        max-width: none;
+    }
+
+    #rouletteSettings {
+        line-height: 1.6;
+        padding: 8px 12px;
+    }
+
+    #historyContainer {
+        max-height: 240px;
+    }
+
+    #textOverlayInput {
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 16px;
+    }
+
+    #textOverlayInputContainer {
+        width: 100%;
+        max-width: 560px;
+    }
+
+    #insertSampleTextWrap {
+        margin-top: 6px;
+    }
+
+    #welcomeMessage {
+        background-color: rgba(255, 255, 255, 0.75);
+        border-radius: 12px;
+        padding: 4px 12px;
+    }
+
+    /* 使用法の説明は画面幅に収める */
+    #descriptionContainer {
+        width: auto;
+        left: 12px;
+        right: 12px;
+        top: 12px;
+        max-height: calc(100vh - 24px);
+        overflow-y: auto;
+        box-sizing: border-box;
+        z-index: 120;
+    }
+
+    .modal-content {
+        width: 92%;
+        margin: 20% auto;
+        padding: 10px;
+        box-sizing: border-box;
+    }
+
+    #saveImageBtn {
+        bottom: 20px;
+        right: 50%;
+        transform: translateX(50%);
+    }
 }
