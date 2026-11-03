@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>カスタムルーレット</title>
 
     <link rel="icon" href="icon.png" type="image/png">
@@ -85,15 +86,15 @@
         <button id="saveImageBtn" class="button">画像を保存</button>
     </div>
 
-    <div id="textOverlayInputContainer" style="position: fixed; left: 20px; bottom: 60px;">
-        <textarea id="textOverlayInput" placeholder="ここにテキストを入力" style="width: 170px; height: 120px;"></textarea>
+    <div id="textOverlayInputContainer">
+        <textarea id="textOverlayInput" placeholder="ここにテキストを入力"></textarea>
 
-        <div style="position: fixed; left: 20px; bottom: 40px;">
+        <div id="insertSampleTextWrap">
             <button id="insertSampleTextButton">サンプルテキストを入力</button>
         </div>
     </div>
 
-    <div style="position: fixed; left: 20px; bottom: 10px;">
+    <div id="cardEditToggleWrap">
         <button id="toggleTextOverlayInputContainerButton">結果表示カード編集</button>
     </div>
 

@@ -3,8 +3,11 @@
 const canvas = document.getElementById('diskCanvas');
 const ctx = canvas.getContext('2d');
 let radius = parseInt(document.getElementById('sizeSlider').value, 10);
-const centerX = canvas.width / 2;
-let centerY = radius + 20;
+// ポインターがはみ出す分を含めた、円盤まわりの余白
+const POINTER_EXTENT = 85;
+let centerX = 0;
+let centerY = 0;
+resizeCanvas();
 let angleOffset = 0;
 let texts = [];
 let visibleTexts = [];
@@ -17,6 +20,10 @@ let spinSpeed = 0.001;
 const maxSpinSpeed = 0.05;
 const spinAcceleration = 0.005;
 const inertiaDecay = 0.99;
+// 加速・減速は「60fpsの1フレーム（約16.7ms）あたり」の値として扱い、画面のリフレッシュレートに左右されないようにする
+const FRAME_MS = 1000 / 60;
+// タブ切り替えなどで時間が大きく飛んだときに、一気に回りすぎないようにする上限
+const MAX_DELTA_MS = 100;
 
 // スクリーンショット用のフラグ
 let shiftPressed = false;
@@ -107,7 +114,7 @@ inputArea.addEventListener('drop', (event) => {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
 
-    if (!file.type.includes('csv') && !file.name.endsWith('.csv')) {
+    if (!file || (!file.type.includes('csv') && !file.name.toLowerCase().endsWith('.csv'))) {
         alert('CSVファイルをドロップしてください。');
         return;
     }
@@ -118,12 +125,12 @@ inputArea.addEventListener('drop', (event) => {
             const arrayBuffer = event.target.result;
             const decoder = new TextDecoder('shift-jis');
             const text = decoder.decode(new Uint8Array(arrayBuffer));
-            const formattedText = text.split(',').join('\n');
-            inputArea.value = formattedText;
-
-            texts = document.getElementById('inputArea').value.trim().split('\n').filter(line => line.trim() !== "");
-            updateCheckBoxList();
-            recalculateSegmentsAndDraw();
+            // カンマ・改行（Windowsの\r\nを含む）で区切って、1行1項目にする
+            const formattedText = text.split(/\r\n|\r|\n|,/)
+                .map(item => item.trim())
+                .filter(item => item !== '')
+                .join('\n');
+            setInputText(formattedText);
         } catch (e) {
             console.error("ファイルの読み込みに失敗しました: ", e);
             alert('ファイルの読み込みに失敗しました。');
@@ -141,6 +148,7 @@ document.getElementById('inputArea').addEventListener('input', function () {
     if (newTexts.length === 0) {
         segmentVisibility = {};
         winningHistory = [];
+        localStorage.removeItem('textareaContent');
     } else {
         const newSegmentVisibility = {};
         const newHistory = [];
@@ -188,11 +196,28 @@ document.getElementById('inputArea').addEventListener('input', function () {
 // サイズスライダーの変更
 document.getElementById('sizeSlider').addEventListener('input', function () {
     radius = parseInt(this.value, 10);
-    centerY = radius + 20;
+    resizeCanvas();
     recalculateSegmentsAndDraw();
-    const topYPosition = centerY + radius + 20;
-    document.getElementById('toggleButton').style.top = `calc(${topYPosition}px)`;
 });
+
+// 入力欄の内容をプログラムから書き換える共通処理。
+// input イベントを発火させて、保存・チェック状態の引き継ぎ・履歴の更新・再描画を
+// 手入力のときと同じ流れで行うの！
+function setInputText(value) {
+    inputArea.value = value;
+    inputArea.dispatchEvent(new Event('input'));
+}
+
+// 円盤の大きさに合わせてキャンバスのサイズを決める関数。
+// 円盤＋ポインターがぴったり収まる大きさにすることで、スマホで縮小表示しても円盤が大きく見えるの！
+function resizeCanvas() {
+    canvas.width = 2 * (radius + POINTER_EXTENT);
+    canvas.height = 2 * radius + 40;
+    centerX = canvas.width / 2;
+    centerY = radius + 20;
+    // PCレイアウトでは、スタートボタンを円盤のすぐ下に置くの
+    document.getElementById('toggleButton').style.top = `${canvas.height}px`;
+}
 
 // サウンドON/OFF切り替え
 document.getElementById('soundToggle').addEventListener('change', function () {
@@ -209,32 +234,16 @@ document.getElementById('autoDisableToggle').addEventListener('change', function
 // 入力例ボタン（書き換え: / を * に変更）
 document.getElementById('exampleInputButton').addEventListener('click', function () {
     const exampleText = 'りんご\nみかん*0.5\nいちご\nバナナ*2';
-    document.getElementById('inputArea').value = exampleText;
-    texts = exampleText.split('\n');
-    
-    // ↓ここから追加なの！入力内容を保存するの！
-    localStorage.setItem('textareaContent', exampleText);
-    
-    // ↓ここから追加なの！今までの履歴を綺麗にクリアするの！
-    winningHistory = [];
-    localStorage.removeItem('winningHistory');
-    updateHistoryDisplay(); // 画面の履歴エリアも空っぽに更新するの！
-    // ↑ここまで追加なの！
 
-    updateCheckBoxList();
-    recalculateSegmentsAndDraw();
+    // 今までの履歴を綺麗にクリアしてから、入力欄に反映（保存も含む）するの！
+    winningHistory = [];
+    setInputText(exampleText);
 });
 
 // 項目全削除ボタン
 document.getElementById('clearInputButton').addEventListener('click', function () {
-    document.getElementById('inputArea').value = '';
-    texts = [];
-    segmentVisibility = {};
-    winningHistory = [];
-    localStorage.removeItem('winningHistory');
-    updateCheckBoxList();
-    recalculateSegmentsAndDraw();
-    updateHistoryDisplay();
+    // 入力欄を空にして、保存内容（項目・表示状態・履歴）もまとめて消すの！
+    setInputText('');
 });
 
 // 履歴表示ボタンの処理
@@ -267,11 +276,9 @@ document.getElementById('randomizeButton').addEventListener('click', function ()
         [itemsWithMultipliers[i], itemsWithMultipliers[j]] = [itemsWithMultipliers[j], itemsWithMultipliers[i]];
     }
 
-    const randomizedText = itemsWithMultipliers.map(({ item, multiplier }) => multiplier ? `${item}*${multiplier}` : item).join('\n');
-    document.getElementById('inputArea').value = randomizedText;
-    texts = randomizedText.split('\n');
-    updateCheckBoxList();
-    recalculateSegmentsAndDraw();
+    const randomizedText = itemsWithMultipliers.map(({ item, multiplier }) => multiplier !== undefined ? `${item}*${multiplier}` : item).join('\n');
+    // 並び替えた結果を保存するの（チェック状態・履歴は名前で引き継がれるの）
+    setInputText(randomizedText);
 });
 
 // 使用法ボタン（書き換え: 説明文の / を * に変更）
@@ -288,7 +295,7 @@ document.getElementById('descriptionInputButton').addEventListener('click', func
         "【使用法】",
         "・項目を「項目入力欄」に入力します。",
         "・改行で項目を増やせます。",
-        "・項目の後ろに「*数字」と入力すると倍率を指定できます。",
+        "・項目の後ろに「*数字」と入力すると倍率を指定できます（数字以外や0以下は1倍として扱います）。",
         "・項目欄下のチェックを外すと項目を見えなくすることができます。",
         "・項目入力欄に「CSVファイル」をドロップして読み込むこともできます。",
         "・「入力例」ボタンで、初期サンプルが表示されます。",
@@ -567,9 +574,14 @@ if (saveImageBtn) {
 // ====== ルーレット・計算ロジックブロック ======
 
 // 指定されたテキストから倍率（*の後の数字）を抽出する関数
+// 「りんご*」のように数字が空のときや、数字でない・0以下のときは 1倍として扱うの
 function parseMultiplier(text) {
     const parts = text.split('*');
-    return parts.length === 2 && !isNaN(parts[1]) ? parseFloat(parts[1]) : 1;
+    if (parts.length !== 2) return 1;
+    const value = parts[1].trim();
+    if (value === '') return 1;
+    const multiplier = Number(value);
+    return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1;
 }
 
 // チェックボックスの表示状態を保存する関数
@@ -606,12 +618,14 @@ function updateCheckBoxList() {
 // 円盤を回転させるアニメーション関数
 function spinDisk() {
     const now = Date.now();
-    const deltaTime = now - lastUpdateTime;
+    const deltaTime = Math.min(now - lastUpdateTime, MAX_DELTA_MS);
+    // 60fps換算で何フレーム分の時間が経ったか（120Hzの画面なら約0.5）
+    const frames = deltaTime / FRAME_MS;
 
     if (spinning) {
-        spinSpeed = Math.min(spinSpeed + spinAcceleration, maxSpinSpeed);
+        spinSpeed = Math.min(spinSpeed + spinAcceleration * frames, maxSpinSpeed);
     } else {
-        spinSpeed *= inertiaDecay;
+        spinSpeed *= Math.pow(inertiaDecay, frames);
 
         if (spinSpeed <= 0.00005) {
             spinSpeed = 0;
@@ -695,7 +709,7 @@ function recalculateSegmentsAndDraw() {
         const segmentAngle = baseAngle * multiplier;
         const startAngle = currentAngle;
         const endAngle = currentAngle + segmentAngle;
-        drawSegment(startAngle + angleOffset, endAngle + angleOffset, `hsl(${(currentAngle / (2 * Math.PI)) * 360}, 100%, 50%)`, text.split('*')[0]);
+        drawSegment(startAngle + angleOffset, endAngle + angleOffset, `hsl(${(currentAngle / (2 * Math.PI)) * 360}, 100%, 50%)`, text.split('*')[0].trim());
         currentAngle += segmentAngle;
     });
 
@@ -728,16 +742,92 @@ function drawSegment(angleStart, angleEnd, color, text) {
     ctx.fillStyle = color;
     ctx.fill();
 
-    const midAngle = (angleStart + angleEnd) / 2;
-    const textRadius = radius * 0.6;
-    const textX = centerX + textRadius * Math.cos(midAngle);
-    const textY = centerY + textRadius * Math.sin(midAngle);
+    drawSegmentLabel(text, angleStart, angleEnd);
+}
 
+// ====== 項目名の文字サイズ自動調整ブロック ======
+const LABEL_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", "Noto Sans JP", sans-serif';
+const LABEL_FONT_WEIGHT = 'bold';
+const LABEL_MIN_FONT = 10;           // これより小さくはしない（入り切らない分は「…」で省略）
+const LABEL_MAX_FONT_RATIO = 0.24;   // 文字サイズの上限（半径に対する割合）
+const LABEL_OUTER_RATIO = 0.9;       // 文字を置ける一番外側（半径に対する割合）
+const LABEL_INNER_RATIO = 0.15;      // 文字を置ける一番内側（中心付近は狭いので避ける）
+const labelWidthCache = new Map();   // 文字サイズ1pxあたりの文字幅のキャッシュ（毎フレーム測り直さないため）
+
+function getLabelFont(fontSize) {
+    return `${LABEL_FONT_WEIGHT} ${fontSize}px ${LABEL_FONT_FAMILY}`;
+}
+
+// 文字サイズ1pxあたりの文字幅を返す関数（100pxで測って割る）
+function getLabelWidthPerPx(text) {
+    if (!labelWidthCache.has(text)) {
+        ctx.font = getLabelFont(100);
+        labelWidthCache.set(text, ctx.measureText(text).width / 100);
+    }
+    return labelWidthCache.get(text);
+}
+
+// 扇形の中に収まる、できるだけ大きな文字サイズで項目名を描く関数。
+// 文字は中心から外側に向かって半径方向に並べるの。
+//   ・扇形の幅：中心から距離 d の位置で使える高さは 2 × d × sin(扇形の角度 / 2)
+//   ・半径方向の長さ：内側(INNER)〜外側(OUTER)の範囲に収める
+// この2つを両方満たす最大の文字サイズを計算するの！
+function drawSegmentLabel(text, angleStart, angleEnd) {
+    if (!text) return;
+
+    const segmentAngle = angleEnd - angleStart;
+    const midAngle = (angleStart + angleEnd) / 2;
+    const outer = radius * LABEL_OUTER_RATIO;
+    const inner = radius * LABEL_INNER_RATIO;
+    // 半分以上の大きさの扇形では、幅の制限は直径と同じ（sin は最大 1）
+    const halfSin = Math.sin(Math.min(segmentAngle / 2, Math.PI / 2));
+    const fillRatio = 0.85; // 扇形の幅いっぱいではなく、少し余白を残す
+    const usableSin = halfSin * fillRatio;
+
+    let label = text;
+    let widthPerPx = getLabelWidthPerPx(label);
+
+    // 文字の内側の端を d = outer - 文字幅 とすると、
+    //   fontSize <= 2 × (outer - widthPerPx × fontSize) × usableSin
+    //   → fontSize <= 2 × outer × usableSin / (1 + 2 × widthPerPx × usableSin)
+    const calcFontSize = (wpp) => Math.min(
+        radius * LABEL_MAX_FONT_RATIO,
+        (2 * outer * usableSin) / (1 + 2 * wpp * usableSin),
+        (outer - inner) / wpp
+    );
+
+    let fontSize = calcFontSize(widthPerPx);
+
+    // 最小サイズでも入り切らない長い名前は、末尾を「…」にして縮めるの
+    if (fontSize < LABEL_MIN_FONT) {
+        fontSize = LABEL_MIN_FONT;
+        const maxLength = Math.min(outer - inner, outer - LABEL_MIN_FONT / (2 * Math.max(usableSin, 0.0001)));
+        while (label.length > 1 && widthPerPx * LABEL_MIN_FONT > maxLength) {
+            label = label.slice(0, -1);
+            widthPerPx = getLabelWidthPerPx(label + '…');
+        }
+        if (label !== text) label += '…';
+    }
+
+    // 扇形が細すぎて最小サイズの文字すら入らないときは描かない
+    if (LABEL_MIN_FONT > 2 * outer * usableSin) return;
+
+    // 文字を置ける範囲（幅の制限から決まる内側の限界〜外側）のちょうど真ん中に置くの
+    const textWidth = widthPerPx * fontSize;
+    const innerLimit = Math.max(inner, fontSize / (2 * Math.max(usableSin, 0.0001)));
+    const textCenter = Math.min((innerLimit + outer) / 2, outer - textWidth / 2);
+
+    ctx.save();
+    // 扇形の影が文字にもかかってぼやけるのを防ぐの
+    ctx.shadowColor = 'transparent';
+    ctx.translate(centerX, centerY);
+    ctx.rotate(midAngle);
+    ctx.font = getLabelFont(fontSize);
     ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, textX, textY);
+    ctx.fillText(label, textCenter, 0);
+    ctx.restore();
 }
 
 // 赤いポインターを描画する関数
@@ -930,10 +1020,12 @@ function showModal(selectedText) {
 }
 
 // モーダル上のテキストの大きさを調整する関数
+// カードの幅（PCでは600px）に合わせて基準サイズを決めるので、スマホでもはみ出さないの
 function adjustFontSizeForModalText() {
     const modalText = document.querySelector('.modal-text');
-    const maxModalContent = 570;
-    const initialFontSize = 75;
+    const cardWidth = document.querySelector('.modal-content').clientWidth || 640;
+    const maxModalContent = cardWidth * 0.89;
+    const initialFontSize = Math.round(cardWidth * 0.117);
     modalText.style.fontSize = `${initialFontSize}px`;
 
     let fontSize = initialFontSize;
