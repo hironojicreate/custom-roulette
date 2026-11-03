@@ -830,8 +830,8 @@ function recalculateSegmentsAndDraw() {
 }
 
 // ====== 円盤の配色ブロック（パステル調） ======
-const WHEEL_SATURATION = 70;    // 彩度（%）。100だと原色でギラギラするので控えめに
-const WHEEL_LIGHTNESS = 78;     // 明度（%）。高めにしてやわらかいパステル調に
+const WHEEL_SATURATION = 80;    // 彩度（%）。100だと原色でギラギラするので控えめに
+const WHEEL_LIGHTNESS = 72;     // 明度（%）。少し高めにして、明るくやわらかい色合いに
 // 色相は赤(0°)から一周させず 320°（赤紫）までにして、最初と最後の項目が同じような赤にならないようにするの
 const WHEEL_HUE_RANGE = 320;
 const WHEEL_RIM_COLOR = '#ffffff';
