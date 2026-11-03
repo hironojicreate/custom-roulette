@@ -38,8 +38,10 @@ let audioCtx;
 let lastPointedText = "";
 let isSoundEnabled = false;
 let isAutoDisableEnabled = true;
-let lastTick = -1;        // 前のフレームでポインターが指していた項目の番号（カチッ音用）
-let pointedIndex = -1;    // 今ポインターが指している項目の番号（visibleTexts の何番目か）
+let lastTick = -1;
+
+// 回転中は項目のチェックを操作できないようにするためのフラグ
+let isSpinLocked = false;
 
 // 履歴機能用の変数
 let winningHistory = [];
@@ -390,11 +392,11 @@ toggleButton.addEventListener('click', function () {
 
     if (!spinning) {
         spinning = true;
+        setSpinLock(true);
         toggleButton.textContent = "ストップ";
         toggleButton.className = 'button stopButton';
         spinSpeed = 0.01;
         lastUpdateTime = Date.now();
-        lastTick = pointedIndex; // 回し始めた瞬間に音が鳴らないよう、今の位置を覚えておくの
         requestAnimationFrame(spinDisk);
     } else {
         spinning = false;
@@ -642,6 +644,7 @@ function updateCheckBoxList() {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = segmentVisibility[text] !== false;
+        checkbox.disabled = isSpinLocked;
         checkbox.onchange = () => {
             segmentVisibility[text] = checkbox.checked;
             saveCheckBoxState();
@@ -661,6 +664,19 @@ function updateCheckBoxList() {
         checkBoxList.appendChild(wrapper);
     });
     fitCheckBoxListHeight();
+}
+
+// 回転中（スタートを押してから完全に止まるまで）は、項目のチェックと
+// 「全表示」「全非表示」ボタンを押せないようにする関数なの！
+// 回っている途中で項目が消えたり増えたりすると、当選結果がおかしくなるからなの
+function setSpinLock(locked) {
+    isSpinLocked = locked;
+    document.querySelectorAll('#checkBoxList input[type="checkbox"]').forEach(cb => {
+        cb.disabled = locked;
+    });
+    document.getElementById('checkAllBtn').disabled = locked;
+    document.getElementById('uncheckAllBtn').disabled = locked;
+    document.getElementById('dragContainer').classList.toggle('spinLocked', locked);
 }
 
 // ====== チェック一覧の高さ調整 ======
@@ -700,6 +716,7 @@ function spinDisk() {
 
         if (spinSpeed <= 0.00005) {
             spinSpeed = 0;
+            setSpinLock(false);
             toggleButton.textContent = "スタート";
             toggleButton.className = 'button startButton';
             toggleButton.disabled = false;
@@ -741,13 +758,17 @@ function spinDisk() {
 
     angleOffset += (spinSpeed * deltaTime) % (2 * Math.PI);
 
-    recalculateSegmentsAndDraw();
+    // ルーレット全体(2π)を等分した角度を計算
+    const tickAngle = (2 * Math.PI) / 3;
+    // 現在の総回転角度が、等分のうちの何番目のブロックにいるか計算
+    const currentTick = Math.floor(angleOffset / tickAngle);
 
-    // ポインターが次の項目に移った瞬間（区切り線を越えた時）に「カチッ」と鳴らすの！
-    if (pointedIndex !== lastTick) {
-        if (lastTick !== -1) playSound();
-        lastTick = pointedIndex; // 鳴らした場所を更新
+    // 前のブロックから新しいブロックに移動した瞬間（境界線を越えた時）に音を鳴らす！
+    if (currentTick !== lastTick) {
+        playSound();
+        lastTick = currentTick; // 鳴らした場所を更新
     }
+    recalculateSegmentsAndDraw();
     lastUpdateTime = now;
     if (spinSpeed > 0) requestAnimationFrame(spinDisk);
 }
@@ -791,7 +812,7 @@ function recalculateSegmentsAndDraw() {
     if (segments.length > 1) {
         segments.forEach(seg => drawSegmentSeparator(seg.start));
     }
-    segments.forEach(seg => drawSegmentLabel(seg.label, seg.start, seg.end, segments.length));
+    segments.forEach(seg => drawSegmentLabel(seg.label, seg.start, seg.end));
 
     drawPointer();
     updatePointedText();
@@ -880,23 +901,18 @@ function getLabelCircleRadiusPerPx(text) {
 //     扇形の辺にぶつからない条件は R ≦ d × sin(扇形の角度 / 2)
 //   ・外周にぶつからない条件は d + R ≦ 外側の限界
 //   この2つを両方満たす一番大きな円は R = 外側 × sin / (1 + sin)
-function drawSegmentLabel(text, angleStart, angleEnd, segmentCount) {
+function drawSegmentLabel(text, angleStart, angleEnd) {
     if (!text) return;
 
     const segmentAngle = angleEnd - angleStart;
     const midAngle = (angleStart + angleEnd) / 2;
     const outer = radius * LABEL_OUTER_RATIO;
 
-    let maxCircle;    // 文字を囲む円の、最大の半径
-    let centerDist;   // その円を置く、中心からの距離（扇形の中心線上）
-    if (segmentCount === 1) {
-        // 項目が1つだけのときは、円盤のど真ん中に置くの
-        maxCircle = outer;
-    } else {
-        // 半分以上の大きさの扇形では、sin は最大 1 として扱う
-        const halfSin = Math.sin(Math.min(segmentAngle / 2, Math.PI / 2)) * LABEL_FILL_RATIO;
-        maxCircle = (outer * halfSin) / (1 + halfSin);
-    }
+    // 半分以上の大きさの扇形では、sin は最大 1 として扱う。
+    // 項目が最後の1つになったとき（扇形が円全体）も同じ計算になるので、文字は中心ではなく
+    // 端に寄った位置に置かれて、円盤と一緒にぐるぐる回るから「回っている感」が出るの！
+    const halfSin = Math.sin(Math.min(segmentAngle / 2, Math.PI / 2)) * LABEL_FILL_RATIO;
+    const maxCircle = (outer * halfSin) / (1 + halfSin); // 文字を囲む円の、最大の半径
 
     let label = text;
     let circlePerPx = getLabelCircleRadiusPerPx(label);
@@ -914,16 +930,11 @@ function drawSegmentLabel(text, angleStart, angleEnd, segmentCount) {
         if (circlePerPx * LABEL_MIN_FONT > maxCircle * 1.5) return;
     }
 
-    if (segmentCount === 1) {
-        centerDist = 0;
-    } else {
-        // 文字を囲む円が置ける範囲（扇形の辺にぶつからない内側の限界〜外周）の真ん中に置くの
-        const circle = circlePerPx * fontSize;
-        const halfSin = Math.sin(Math.min(segmentAngle / 2, Math.PI / 2)) * LABEL_FILL_RATIO;
-        const innerLimit = circle / halfSin;
-        const outerLimit = outer - circle;
-        centerDist = (innerLimit + outerLimit) / 2;
-    }
+    // 文字を囲む円が置ける範囲（扇形の辺にぶつからない内側の限界〜外周）の真ん中に置くの
+    const circle = circlePerPx * fontSize;
+    const innerLimit = circle / halfSin;
+    const outerLimit = outer - circle;
+    const centerDist = (innerLimit + outerLimit) / 2; // 中心からの距離（扇形の中心線上）
 
     ctx.save();
     ctx.font = getLabelFont(fontSize);
@@ -1104,20 +1115,17 @@ function updatePointedText() {
     let currentAngle = 0;
     let foundText = "テキストエリアに、項目と倍率を書いて下さい。";
 
-    let foundIndex = -1;
     const totalMultiplier = visibleTexts.reduce((acc, val) => acc + parseMultiplier(val), 0);
 
-    visibleTexts.forEach((text, index) => {
+    visibleTexts.forEach(text => {
         const multiplier = parseMultiplier(text);
         const segmentAngle = (2 * Math.PI) * multiplier / totalMultiplier;
 
         if (adjustedAngle >= currentAngle && adjustedAngle < currentAngle + segmentAngle) {
             foundText = text.split('*')[0];
-            foundIndex = index;
         }
         currentAngle += segmentAngle;
     });
-    pointedIndex = foundIndex;
 
     document.getElementById('pointedText').textContent = foundText;
 }
