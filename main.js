@@ -412,6 +412,7 @@ const resizeObserver = new ResizeObserver(entries => {
         if (dragContainer) {
             const newWrapTop = inputTop + inputHeight + 10;
             dragContainer.style.top = `${newWrapTop}px`;
+            fitCheckBoxListHeight();
         }
     }
 });
@@ -457,6 +458,7 @@ if (dragHandle && dragContainer) {
 
     // マウスを離した時
     document.addEventListener('mouseup', () => {
+        if (isDragging) fitCheckBoxListHeight();
         isDragging = false;
     });
 
@@ -488,6 +490,7 @@ if (dragHandle && dragContainer) {
 
     // 指を画面から離した時
     document.addEventListener('touchend', () => {
+        if (isDragging) fitCheckBoxListHeight();
         isDragging = false;
     });
 }
@@ -606,6 +609,10 @@ function updateCheckBoxList() {
             updateHistoryDisplay();
         };
 
+        // 長い名前は「…」で省略表示されるので、マウスを乗せたら全文が見えるようにするの
+        wrapper.title = textWithoutMultiplier;
+        wrapper.className = 'checkItem';
+
         const label = document.createElement('label');
         label.appendChild(checkbox); // 1. まずチェックボックスをラベルの中に入れる
         label.appendChild(document.createTextNode(' ' + textWithoutMultiplier)); // 2. その隣に文字を入れる（見やすいように半角スペースを1つ挟むの！）
@@ -613,7 +620,31 @@ function updateCheckBoxList() {
 
         checkBoxList.appendChild(wrapper);
     });
+    fitCheckBoxListHeight();
 }
+
+// ====== チェック一覧の高さ調整 ======
+// PC表示では、チェック一覧が画面の下にある「履歴表示」などのボタンや設定に
+// かぶらないよう、画面の高さに合わせて一覧の最大の高さを決めるの！
+const CHECK_LIST_MAX_HEIGHT = 350;
+const CHECK_LIST_MIN_HEIGHT = 80;
+const BOTTOM_CONTROLS_SPACE = 130; // 画面下のボタン・設定のために空けておく高さ（一覧の箱の余白込み）
+const desktopLayoutQuery = window.matchMedia('(min-width: 1101px)');
+
+function fitCheckBoxListHeight() {
+    const list = document.getElementById('checkBoxList');
+    if (!list) return;
+    if (!desktopLayoutQuery.matches) {
+        list.style.maxHeight = ''; // スマホ表示ではCSSの指定に任せるの
+        return;
+    }
+    const available = window.innerHeight - BOTTOM_CONTROLS_SPACE - list.getBoundingClientRect().top;
+    const maxHeight = Math.max(CHECK_LIST_MIN_HEIGHT, Math.min(CHECK_LIST_MAX_HEIGHT, available));
+    list.style.maxHeight = `${maxHeight}px`;
+}
+
+window.addEventListener('resize', fitCheckBoxListHeight);
+desktopLayoutQuery.addEventListener('change', fitCheckBoxListHeight);
 
 // 円盤を回転させるアニメーション関数
 function spinDisk() {
@@ -690,33 +721,40 @@ function recalculateSegmentsAndDraw() {
     visibleTexts = texts.filter(text => segmentVisibility[text] !== false);
     const totalMultiplier = visibleTexts.reduce((total, text) => total + parseMultiplier(text), 0);
     const baseAngle = (2 * Math.PI) / totalMultiplier;
-    let currentAngle = 0;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // 白い縁（ふんわりした影をつけて、円盤を背景から浮かせるの）
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(centerX, centerY, radius + 5, 0, Math.PI * 2, false);
-    ctx.fillStyle = '#adff2f';
+    ctx.arc(centerX, centerY, radius + WHEEL_RIM_WIDTH, 0, Math.PI * 2, false);
+    ctx.fillStyle = WHEEL_RIM_COLOR;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
     ctx.fill();
+    ctx.restore();
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetX = 5;
-    ctx.shadowOffsetY = 5;
-
-    visibleTexts.forEach(text => {
-        const multiplier = parseMultiplier(text);
-        const segmentAngle = baseAngle * multiplier;
-        const startAngle = currentAngle;
-        const endAngle = currentAngle + segmentAngle;
-        drawSegment(startAngle + angleOffset, endAngle + angleOffset, `hsl(${(currentAngle / (2 * Math.PI)) * 360}, 100%, 50%)`, text.split('*')[0].trim());
+    // 各項目の扇形の角度を先に計算しておくの
+    let currentAngle = 0;
+    const segments = visibleTexts.map(text => {
+        const segmentAngle = baseAngle * parseMultiplier(text);
+        const segment = {
+            label: text.split('*')[0].trim(),
+            color: getSegmentColor(currentAngle),
+            start: currentAngle + angleOffset,
+            end: currentAngle + segmentAngle + angleOffset
+        };
         currentAngle += segmentAngle;
+        return segment;
     });
 
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
+    // 1. 扇形を塗る → 2. 白い区切り線 → 3. 項目名 の順に描くと、線が文字に重ならないの
+    segments.forEach(seg => drawSegment(seg.start, seg.end, seg.color));
+    if (segments.length > 1) {
+        segments.forEach(seg => drawSegmentSeparator(seg.start));
+    }
+    segments.forEach(seg => drawSegmentLabel(seg.label, seg.start, seg.end, segments.length));
 
     drawPointer();
     updatePointedText();
@@ -733,100 +771,132 @@ function recalculateSegmentsAndDraw() {
     }
 }
 
-// 1つの扇型セグメントを描画する関数
-function drawSegment(angleStart, angleEnd, color, text) {
+// ====== 円盤の配色ブロック（パステル調） ======
+const WHEEL_SATURATION = 70;    // 彩度（%）。100だと原色でギラギラするので控えめに
+const WHEEL_LIGHTNESS = 78;     // 明度（%）。高めにしてやわらかいパステル調に
+// 色相は赤(0°)から一周させず 320°（赤紫）までにして、最初と最後の項目が同じような赤にならないようにするの
+const WHEEL_HUE_RANGE = 320;
+const WHEEL_RIM_COLOR = '#ffffff';
+const WHEEL_RIM_WIDTH = 6;
+const WHEEL_SEPARATOR_COLOR = '#ffffff';
+const WHEEL_SEPARATOR_WIDTH = 3;
+
+// 扇形の開始位置（0〜2π）から、その項目の色を決める関数
+function getSegmentColor(startAngle) {
+    const hue = (startAngle / (2 * Math.PI)) * WHEEL_HUE_RANGE;
+    return `hsl(${hue}, ${WHEEL_SATURATION}%, ${WHEEL_LIGHTNESS}%)`;
+}
+
+// 1つの扇型セグメントを塗る関数
+function drawSegment(angleStart, angleEnd, color) {
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
     ctx.arc(centerX, centerY, radius, angleStart, angleEnd);
     ctx.closePath();
     ctx.fillStyle = color;
     ctx.fill();
+}
 
-    drawSegmentLabel(text, angleStart, angleEnd);
+// 項目どうしの境目に白い線を引く関数
+function drawSegmentSeparator(angle) {
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(centerX + radius * Math.cos(angle), centerY + radius * Math.sin(angle));
+    ctx.strokeStyle = WHEEL_SEPARATOR_COLOR;
+    ctx.lineWidth = WHEEL_SEPARATOR_WIDTH;
+    ctx.stroke();
 }
 
 // ====== 項目名の文字サイズ自動調整ブロック ======
 const LABEL_FONT_FAMILY = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Meiryo", "Noto Sans JP", sans-serif';
 const LABEL_FONT_WEIGHT = 'bold';
+const LABEL_COLOR = '#222';
 const LABEL_MIN_FONT = 10;           // これより小さくはしない（入り切らない分は「…」で省略）
 const LABEL_MAX_FONT_RATIO = 0.24;   // 文字サイズの上限（半径に対する割合）
-const LABEL_OUTER_RATIO = 0.9;       // 文字を置ける一番外側（半径に対する割合）
-const LABEL_INNER_RATIO = 0.15;      // 文字を置ける一番内側（中心付近は狭いので避ける）
+const LABEL_OUTER_RATIO = 0.94;      // 文字を置ける一番外側（半径に対する割合）
+const LABEL_FILL_RATIO = 0.9;        // 扇形の幅いっぱいではなく、少し余白を残す
 const labelWidthCache = new Map();   // 文字サイズ1pxあたりの文字幅のキャッシュ（毎フレーム測り直さないため）
 
 function getLabelFont(fontSize) {
     return `${LABEL_FONT_WEIGHT} ${fontSize}px ${LABEL_FONT_FAMILY}`;
 }
 
-// 文字サイズ1pxあたりの文字幅を返す関数（100pxで測って割る）
-function getLabelWidthPerPx(text) {
+// 横書きの文字の四角形を、ちょうど囲む円の半径を「文字サイズ1pxあたり」で返す関数。
+// 文字の高さは文字サイズとほぼ同じなので、半径 = √((幅/2)² + (高さ/2)²)
+function getLabelCircleRadiusPerPx(text) {
     if (!labelWidthCache.has(text)) {
         ctx.font = getLabelFont(100);
-        labelWidthCache.set(text, ctx.measureText(text).width / 100);
+        const widthPerPx = ctx.measureText(text).width / 100;
+        labelWidthCache.set(text, Math.sqrt((widthPerPx / 2) ** 2 + 0.25));
     }
     return labelWidthCache.get(text);
 }
 
-// 扇形の中に収まる、できるだけ大きな文字サイズで項目名を描く関数。
-// 文字は中心から外側に向かって半径方向に並べるの。
-//   ・扇形の幅：中心から距離 d の位置で使える高さは 2 × d × sin(扇形の角度 / 2)
-//   ・半径方向の長さ：内側(INNER)〜外側(OUTER)の範囲に収める
-// この2つを両方満たす最大の文字サイズを計算するの！
-function drawSegmentLabel(text, angleStart, angleEnd) {
+// 扇形の中に収まる、できるだけ大きな文字サイズで項目名を「横書き」で描く関数。
+//
+// 横書きの文字は円盤が回ると扇形に対する向きが変わるので、そのまま計算すると
+// 回転中に文字の大きさがコロコロ変わってしまうの。
+// そこで「文字の四角形をすっぽり囲む円」が扇形に入る大きさで考えると、
+// 向きに関係なく同じ大きさになるの！
+//   ・扇形の中心線上、中心から距離 d の位置に半径 R の円を置くと、
+//     扇形の辺にぶつからない条件は R ≦ d × sin(扇形の角度 / 2)
+//   ・外周にぶつからない条件は d + R ≦ 外側の限界
+//   この2つを両方満たす一番大きな円は R = 外側 × sin / (1 + sin)
+function drawSegmentLabel(text, angleStart, angleEnd, segmentCount) {
     if (!text) return;
 
     const segmentAngle = angleEnd - angleStart;
     const midAngle = (angleStart + angleEnd) / 2;
     const outer = radius * LABEL_OUTER_RATIO;
-    const inner = radius * LABEL_INNER_RATIO;
-    // 半分以上の大きさの扇形では、幅の制限は直径と同じ（sin は最大 1）
-    const halfSin = Math.sin(Math.min(segmentAngle / 2, Math.PI / 2));
-    const fillRatio = 0.85; // 扇形の幅いっぱいではなく、少し余白を残す
-    const usableSin = halfSin * fillRatio;
+
+    let maxCircle;    // 文字を囲む円の、最大の半径
+    let centerDist;   // その円を置く、中心からの距離（扇形の中心線上）
+    if (segmentCount === 1) {
+        // 項目が1つだけのときは、円盤のど真ん中に置くの
+        maxCircle = outer;
+    } else {
+        // 半分以上の大きさの扇形では、sin は最大 1 として扱う
+        const halfSin = Math.sin(Math.min(segmentAngle / 2, Math.PI / 2)) * LABEL_FILL_RATIO;
+        maxCircle = (outer * halfSin) / (1 + halfSin);
+    }
 
     let label = text;
-    let widthPerPx = getLabelWidthPerPx(label);
-
-    // 文字の内側の端を d = outer - 文字幅 とすると、
-    //   fontSize <= 2 × (outer - widthPerPx × fontSize) × usableSin
-    //   → fontSize <= 2 × outer × usableSin / (1 + 2 × widthPerPx × usableSin)
-    const calcFontSize = (wpp) => Math.min(
-        radius * LABEL_MAX_FONT_RATIO,
-        (2 * outer * usableSin) / (1 + 2 * wpp * usableSin),
-        (outer - inner) / wpp
-    );
-
-    let fontSize = calcFontSize(widthPerPx);
+    let circlePerPx = getLabelCircleRadiusPerPx(label);
+    let fontSize = Math.min(radius * LABEL_MAX_FONT_RATIO, maxCircle / circlePerPx);
 
     // 最小サイズでも入り切らない長い名前は、末尾を「…」にして縮めるの
     if (fontSize < LABEL_MIN_FONT) {
         fontSize = LABEL_MIN_FONT;
-        const maxLength = Math.min(outer - inner, outer - LABEL_MIN_FONT / (2 * Math.max(usableSin, 0.0001)));
-        while (label.length > 1 && widthPerPx * LABEL_MIN_FONT > maxLength) {
+        while (label.length > 1 && circlePerPx * LABEL_MIN_FONT > maxCircle) {
             label = label.slice(0, -1);
-            widthPerPx = getLabelWidthPerPx(label + '…');
+            circlePerPx = getLabelCircleRadiusPerPx(label + '…');
         }
         if (label !== text) label += '…';
+        // 扇形が細すぎて、1文字すら入らないときは描かない
+        if (circlePerPx * LABEL_MIN_FONT > maxCircle * 1.5) return;
     }
 
-    // 扇形が細すぎて最小サイズの文字すら入らないときは描かない
-    if (LABEL_MIN_FONT > 2 * outer * usableSin) return;
-
-    // 文字を置ける範囲（幅の制限から決まる内側の限界〜外側）のちょうど真ん中に置くの
-    const textWidth = widthPerPx * fontSize;
-    const innerLimit = Math.max(inner, fontSize / (2 * Math.max(usableSin, 0.0001)));
-    const textCenter = Math.min((innerLimit + outer) / 2, outer - textWidth / 2);
+    if (segmentCount === 1) {
+        centerDist = 0;
+    } else {
+        // 文字を囲む円が置ける範囲（扇形の辺にぶつからない内側の限界〜外周）の真ん中に置くの
+        const circle = circlePerPx * fontSize;
+        const halfSin = Math.sin(Math.min(segmentAngle / 2, Math.PI / 2)) * LABEL_FILL_RATIO;
+        const innerLimit = circle / halfSin;
+        const outerLimit = outer - circle;
+        centerDist = (innerLimit + outerLimit) / 2;
+    }
 
     ctx.save();
-    // 扇形の影が文字にもかかってぼやけるのを防ぐの
-    ctx.shadowColor = 'transparent';
-    ctx.translate(centerX, centerY);
-    ctx.rotate(midAngle);
     ctx.font = getLabelFont(fontSize);
-    ctx.fillStyle = 'black';
+    ctx.fillStyle = LABEL_COLOR;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, textCenter, 0);
+    ctx.fillText(
+        label,
+        centerX + centerDist * Math.cos(midAngle),
+        centerY + centerDist * Math.sin(midAngle)
+    );
     ctx.restore();
 }
 

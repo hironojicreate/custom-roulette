@@ -354,8 +354,16 @@ body {
 
 #checkBoxList {
     width: 100%;
+    max-width: 200px; /* 長い名前があっても横に広がりすぎないようにするの */
     max-height: 350px; /* リストの最大長さを決めて、下に突き抜けるのを防ぐの！ */
     overflow-y: auto;  /* はみ出た分は、箱の中でスクロールできるようにするの！ */
+}
+
+/* 長い名前は1行に収めて、はみ出した分を「…」で省略するの */
+#checkBoxList .checkItem {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ====== コピーライト表示 ====== */
@@ -584,6 +592,7 @@ body {
 
     #checkBoxList {
         max-height: 240px;
+        max-width: none;
     }
 
     #rouletteSettings {
